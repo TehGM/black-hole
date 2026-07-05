@@ -1113,21 +1113,20 @@ function updateURL() {
       window.prompt("Copy this link:", url);
     }
   });
-  // UI visibility is session-only: hiding does NOT persist to the URL,
-  // so a refresh always brings the controls back. CONFIG.showUI (URL
-  // key `ui`) only sets the *initial* state — e.g. `ui=0` for a clean
-  // wallpaper link that starts hidden.
-  let uiVisible = CONFIG.showUI;
+  // Hiding persists via the URL (`ui=0`) so it survives a refresh and
+  // travels with shared links. Press H (or delete the `ui` param) to
+  // bring the controls back.
   function setUIVisible(v) {
-    uiVisible = v;
+    CONFIG.showUI = v;
     bar.style.display = v ? "" : "none";
     if (!v) panel.style.display = "none";
+    updateURL();
   }
   btnHide.addEventListener("click", () => setUIVisible(false));
   window.addEventListener("keydown", (e) => {
-    if (e.key === "h" || e.key === "H") setUIVisible(!uiVisible);
+    if (e.key === "h" || e.key === "H") setUIVisible(!CONFIG.showUI);
   });
-  setUIVisible(CONFIG.showUI);
+  if (!CONFIG.showUI) bar.style.display = "none";
 
   // keep the URL in sync while the user orbits/zooms with the mouse
   const camDrift = debounce(() => { syncCamToConfig(); syncPanel(); updateURL(); }, 400);
