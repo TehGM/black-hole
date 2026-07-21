@@ -1,0 +1,95 @@
+name: Deploy site
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Queue deploys rather than cancelling them — a cancelled run can leave the
+# site half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.gitignore' \
+            --exclude='CLAUDE.md' \
+            --exclude='_site' \
+            --exclude='_zips' \
+            ./ _site/
+
+      - name: Bundle each wallpaper
+        run: |
+          set -euo pipefail
+          mkdir -p _zips
+          found=0
+          for dir in _site/*/; do
+            name=$(basename "$dir")
+            # a wallpaper is any top-level folder with an index.html
+            [ -f "$dir/index.html" ] || continue
+            # build the archive OUTSIDE the tree, then move it in — zipping a
+            # directory into itself can capture the archive mid-write
+            (cd "$dir" && zip -r -q -X "$GITHUB_WORKSPACE/_zips/$name.zip" .) \
+              || { echo "::error::failed to bundle $name"; exit 1; }
+            mv "_zips/$name.zip" "$dir/$name.zip" \
+              || { echo "::error::failed to place $name.zip"; exit 1; }
+            echo "$name.zip — $(du -h "$dir/$name.zip" | cut -f1)"
+            found=$((found + 1))
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::error::No wallpaper folders found (expected a top-level dir containing index.html)"
+            exit 1
+          fi
+          rmdir _zips
+          echo "bundled $found wallpaper(s)"
+
+      - name: Verify bundles
+        run: |
+          set -euo pipefail
+          fail=0
+          for dir in _site/*/; do
+            name=$(basename "$dir")
+            [ -f "$dir/index.html" ] || continue
+            zipf="$dir$name.zip"
+            if [ ! -s "$zipf" ]; then
+              echo "::error::$zipf missing or empty"; fail=1; continue
+            fi
+            # integrity, and that index.html really is at the archive root
+            unzip -t -qq "$zipf" || { echo "::error::$zipf is corrupt"; fail=1; continue; }
+            unzip -l "$zipf" | grep -qE ' index\.html$' \
+              || { echo "::error::$zipf has no index.html at its root"; fail=1; }
+          done
+          [ "$fail" -eq 0 ] || exit 1
+          echo "all bundles verified"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
