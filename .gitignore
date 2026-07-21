@@ -1,0 +1,7 @@
+# Scratch variants from design iterations (e.g. blackhole-2/, neonscape-1/)
+blackhole-*/
+neonscape-*/
+
+# Editor & tooling
+.claude/
+.vs/
