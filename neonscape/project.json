@@ -1,0 +1,21 @@
+{
+	"contentrating" : "Everyone",
+	"description" : "A synthwave / retrowave scene builder and animated wallpaper. Everything is editable live from the built-in panel and every scene can be shared as a link. Audio reactive: almost every element can be driven by bass, mids or treble.",
+	"file" : "index.html",
+	"general" :
+	{
+		"supportsaudioprocessing" : true
+	},
+	"preview" : "preview.jpg",
+	"tags" :
+	[
+		"Abstract",
+		"Sci-Fi",
+		"Retro",
+		"Landscape",
+		"Music"
+	],
+	"title" : "Neonscape",
+	"type" : "web",
+	"visibility" : "public"
+}

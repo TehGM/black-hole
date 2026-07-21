@@ -1,0 +1,20 @@
+{
+	"contentrating" : "Everyone",
+	"description" : "A fully customizable real-time WebGL2 black hole with gravitational lensing — the accretion disk arches over and under the hole, and background stars smear into Einstein rings. Drag to orbit, scroll to zoom, and tune everything from the built-in panel; any look can be shared as a link.",
+	"file" : "index.html",
+	"general" :
+	{
+		"properties" : {}
+	},
+	"preview" : "preview.jpg",
+	"tags" :
+	[
+		"Abstract",
+		"Sci-Fi",
+		"CGI",
+		"Relaxing"
+	],
+	"title" : "Black Hole",
+	"type" : "web",
+	"visibility" : "public"
+}
