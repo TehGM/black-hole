@@ -117,6 +117,28 @@ button.primary{ border-color:var(--line); color:#ffd8ec; }
   text-align:center; }
 .presets:hover{ border-color:var(--mag); color:#fff;
   box-shadow:0 0 10px rgba(255,45,149,.35); }
+/* import/export menu buttons — two to a row, keeping the 3-col toolbar grid */
+.pair{ grid-column:span 3; display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+
+/* ── scene-code overlay ───────────────────────────────────────────────
+   Plain divs and a textarea. A native dialog is not an option here:
+   prompt/alert/confirm kill WE's CEF outright (see makeSelect).      */
+#codebox{ position:fixed; inset:0; z-index:40; display:none;
+  align-items:center; justify-content:center; background:rgba(4,1,14,.62); }
+#codebox.show{ display:flex; }
+#codebox .card{ width:min(520px, calc(100vw - 32px)); box-sizing:border-box;
+  background:var(--bg); border:1px solid var(--line); border-radius:12px;
+  box-shadow:0 12px 48px rgba(0,0,0,.6); padding:16px; }
+#codebox h2{ font-family:var(--mono); font-size:10px; letter-spacing:.28em;
+  text-transform:uppercase; color:var(--cyn); font-weight:400; margin:0 0 8px; }
+#codeHint{ margin:0 0 10px; font-size:11px; color:var(--dim); line-height:1.5; }
+#codeText{ width:100%; height:132px; resize:vertical; box-sizing:border-box;
+  font-family:var(--mono); font-size:10px; line-height:1.45; color:var(--ink);
+  background:rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.14);
+  border-radius:6px; padding:8px; word-break:break-all; }
+#codeText:focus-visible{ outline:2px solid var(--cyn); outline-offset:1px; }
+#codeBtns{ display:flex; gap:6px; justify-content:flex-end; margin-top:10px; }
+#codeBtns button{ padding:6px 16px; }
 
 /* Dropdowns are built from plain divs — see makeSelect(). A real <select>
    must never exist in this page; see the note there. */
@@ -258,9 +280,10 @@ canvas.dir:active{ cursor:grabbing; }
       <div class="moodwrap" id="moodSel" title="Randomizer mood" aria-label="Randomizer mood">▾</div>
     </div>
     <button id="btnPal"   title="New colors only">🎨 Palette</button>
-    <button id="btnSave"  title="S — copy wallpaper link (starts with UI hidden)">🔗 Save link</button>
-    <button id="btnDl"    title="Download scene as JSON">⭳ JSON</button>
-    <button id="btnUp"    title="Import scene JSON">⭱ JSON</button>
+    <div class="pair">
+      <div class="presets" id="impSel" title="Import a scene">⭱ Import ▾</div>
+      <div class="presets" id="expSel" title="Export this scene">⭳ Export ▾</div>
+    </div>
     <button id="btnReset" title="Restore defaults">Reset</button>
     <button id="btnHide"  title="H">Hide UI</button>
     <button id="btnFull"  title="F">⛶ Full</button>
@@ -281,6 +304,19 @@ canvas.dir:active{ cursor:grabbing; }
 
 <div id="reveal" class="gone" title="Show controls (H)">⚙</div>
 <div id="toast" role="status"></div>
+
+<div id="codebox" role="dialog" aria-modal="true" aria-labelledby="codeTitle">
+  <div class="card">
+    <h2 id="codeTitle">Scene code</h2>
+    <p id="codeHint"></p>
+    <textarea id="codeText" spellcheck="false" autocomplete="off"
+              aria-label="Scene code"></textarea>
+    <div id="codeBtns">
+      <button id="codeGo" class="primary">Copy</button>
+      <button id="codeClose">Close</button>
+    </div>
+  </div>
+</div>
 <input type="file" id="fileJson"  accept=".json,application/json" hidden>
 <input type="file" id="fileAudio" accept="audio/*" hidden>
 
@@ -696,7 +732,12 @@ function parseParams(){
   return out;
 }
 
-const LS_KEY = 'neonscape.state.v1';
+/* Namespaced twice over on purpose. A wallpaper host serves local wallpapers
+   from file://, and Chromium gives every file:// page ONE shared localStorage
+   origin — so this key sits in the same namespace as every other wallpaper
+   installed on the machine, mine or anyone else's. The vendor prefix keeps a
+   collision from being merely unlikely.                                    */
+const LS_KEY = 'tehgm.neonscape.state.v1';
 let saveTimer = 0;
 function autosave(){
   clearTimeout(saveTimer);
@@ -5316,6 +5357,9 @@ function toggleUI(show = panelHidden){
   panelHidden = !show;
   document.getElementById('panel').classList.toggle('hidden', panelHidden);
   document.getElementById('reveal').classList.toggle('gone', !panelHidden);
+  // the code overlay lives outside the panel, so hiding the UI must take it
+  // down too or it would be left floating over a bare scene
+  if (panelHidden) closeCodeBox();
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -5414,10 +5458,87 @@ document.getElementById('btnColAll').addEventListener('click', () =>
 document.getElementById('btnReset').addEventListener('click', () => {
   loadState(deepClone(DEFAULTS)); toast('Defaults restored');
 });
-document.getElementById('btnSave').addEventListener('click', saveLink);
-document.getElementById('btnDl').addEventListener('click', downloadJson);
-document.getElementById('btnUp').addEventListener('click', () =>
-  document.getElementById('fileJson').click());
+/* ── scene code box ────────────────────────────────────────────────────
+   One overlay serves both directions: export fills it and tries the
+   clipboard, import takes a paste. The textarea is not a convenience —
+   it is the fallback that has to exist, because the async clipboard
+   rejects whenever the wallpaper isn't focused, which in a host like
+   Wallpaper Engine is most of the time. Keeping the text on screen and
+   pre-selected means a copy is always possible by hand.              */
+const codeBox   = document.getElementById('codebox');
+const codeText  = document.getElementById('codeText');
+const codeGo    = document.getElementById('codeGo');
+let codeMode = 'export';
+
+function closeCodeBox(){ codeBox.classList.remove('show'); }
+async function openCodeBox(mode){
+  codeMode = mode;
+  const exp = mode === 'export';
+  document.getElementById('codeTitle').textContent =
+    exp ? 'Scene code' : 'Import scene code';
+  document.getElementById('codeHint').textContent = exp
+    ? 'Paste this into another copy of Neonscape — Import ▸ Scene code. '
+      + 'It carries the whole scene, so it works with no network at all.'
+    : 'Paste a scene code below, then Apply. Ctrl+Enter also applies.';
+  codeGo.textContent = exp ? 'Copy' : 'Apply';
+  codeText.value = exp ? await encodeConfig(state) : '';
+  codeBox.classList.add('show');
+  codeText.focus();
+  if (exp){ codeText.select(); copyCode(); }
+}
+function copyCode(){
+  const text = codeText.value;
+  codeText.select();
+  const ok = () => toast('Scene code copied');
+  const no = () => toast(legacyCopy(text)
+    ? 'Scene code copied'
+    : 'Press Ctrl+C to copy the selected code');
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(ok, no);
+  else no();
+}
+async function applyCode(){
+  const text = codeText.value.trim();
+  if (!text){ toast('Paste a scene code first'); return; }
+  let obj;
+  try { obj = await decodeConfig(text); }
+  catch { toast('That does not look like a scene code'); return; }
+  loadState(obj);
+  closeCodeBox();
+  toast('Scene imported');
+}
+codeGo.addEventListener('click', () => {
+  if (codeMode === 'export') copyCode(); else applyCode();
+});
+document.getElementById('codeClose').addEventListener('click', closeCodeBox);
+codeBox.addEventListener('mousedown', e => {
+  if (e.target === codeBox) closeCodeBox();       // click the backdrop to dismiss
+});
+codeText.addEventListener('keydown', e => {
+  if (e.key === 'Escape'){ e.preventDefault(); closeCodeBox(); }
+  else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && codeMode === 'import'){
+    e.preventDefault(); applyCode();
+  }
+});
+
+/* ── import / export menus ─────────────────────────────────────────────
+   Menu buttons, not selections: the label stays put and picking the same
+   entry twice fires again (see makeSelect's `menu` option).           */
+makeSelect([['code', '⭱ Scene code…'], ['json', '⭱ JSON file…']],
+           { el: document.getElementById('impSel'), silent: true, menu: true })
+  .addEventListener('change', e => {
+    if (e.target.value === 'code') openCodeBox('import');
+    else document.getElementById('fileJson').click();
+  });
+makeSelect([['link', '🔗 Wallpaper link'], ['code', '⭳ Scene code…'],
+            ['json', '⭳ JSON file']],
+           { el: document.getElementById('expSel'), silent: true, menu: true })
+  .addEventListener('change', e => {
+    const v = e.target.value;
+    if (v === 'link') saveLink();
+    else if (v === 'code') openCodeBox('export');
+    else downloadJson();
+  });
 document.getElementById('fileJson').addEventListener('change', e => {
   const f = e.target.files[0];
   if (!f) return;

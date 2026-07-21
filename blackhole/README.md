@@ -17,13 +17,26 @@ A slim toolbar sits on the right edge (dimmed until hovered):
 
 - 🎲 **Generate new** — random seed with the current settings.
 - ⚙ **Settings** — panel with every configurable value.
-- 🔗 **Copy link** — copies a URL reproducing the exact current look,
-  including the camera position.
+- ⭱ **Import** — scene code (paste) or JSON file.
+- ⭳ **Export** — wallpaper link, scene code (copy), or JSON file.
 - ✕ **Hide** — removes all UI (press **H** to bring it back).
 
-Every change is reflected in the address bar: any value that differs from the
-defaults becomes a query parameter, so the URL is always shareable. Loading a
-link applies it back. Useful keys: `seed`, `ui=0` (start with hidden UI),
+## Moving a scene between copies
+
+A **scene code** is the whole configuration as one line of text. Export it,
+paste it into another copy under ⭱ Import, and you get the identical scene —
+no network needed.
+
+This is the way to configure a copy installed in a wallpaper host. Such a host
+loads `index.html` straight off disk with no query string, so a shared link has
+nothing to apply; a code pasted into the panel does. Once applied it is
+remembered in `localStorage`, along with every later tweak, so the scene comes
+back on its own from then on.
+
+Every change is also reflected in the address bar: any value that differs from
+the defaults becomes a query parameter, so the URL is always shareable. A link
+takes precedence over the remembered local scene, so a link someone shares
+always looks the way they saw it. Useful keys: `seed`, `ui=0` (start with hidden UI),
 `cam=0` (lock the camera → fastest path), `yaw`/`pitch`/`dist`, `diskColor`
 (`seed` or `rrggbb`), `nebulae`, `ambient`, `stars`, `motion`, `scale`, `fps`.
 Example:
