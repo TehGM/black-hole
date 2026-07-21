@@ -14,10 +14,12 @@ browser background or screensaver.
 
 ## Wallpapers
 
-| | Path | Live |
-|---|---|---|
-| [Black Hole](blackhole/) | `/blackhole/` | https://wallpapers.tehgm.net/blackhole/ |
-| [Neonscape](neonscape/) | `/neonscape/` | https://wallpapers.tehgm.net/neonscape/ |
+| | Path | Status | Live |
+|---|---|---|---|
+| [Black Hole](blackhole/) | `/blackhole/` | Released | https://wallpapers.tehgm.net/blackhole/ |
+| [Neonscape](neonscape/) | `/neonscape/` | Released | https://wallpapers.tehgm.net/neonscape/ |
+
+Released wallpapers keep their saved links and scenes working across updates.
 
 ## Usage
 

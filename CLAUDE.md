@@ -90,6 +90,35 @@ perspective crams hundreds of world units into the last few pixel rows.
 - Physical Fresnel makes reflections vanish exactly where the viewer looks; raise
   the floor above physical.
 
+## Save compatibility and release status
+
+Whether saved scenes must keep working depends entirely on whether a wallpaper
+has been **publicly released**. Check the table below before touching anything
+that serializes.
+
+| Wallpaper | Status | Save compatibility |
+| --- | --- | --- |
+| `blackhole/` | Released | **Required** |
+| `neonscape/` | Released | **Required** |
+
+**Not yet released — ignore save compatibility entirely.** No version fields, no
+legacy-key shims, no migration paths. Rename, restructure and drop state keys
+freely; a cleaner state shape is worth more than a save nobody has. Do not add
+this defensively "for later" — the user has been explicit about not wanting it.
+
+**Released — save compatibility is required.** Shared links and autosaved local
+state are a public contract: someone has this set as their desktop, and a link
+they posted somewhere must not degrade. Keep old keys readable, default anything
+new so an old save stays valid, and migrate rather than reinterpret. A saved
+scene must still produce the same picture.
+
+**Either way, skip it when the user says to.** An explicit instruction to drop
+compatibility overrides the table.
+
+The user decides when something is released and will say so. On release: mark it
+in the table above, and update `README.md`. Keep the table current — it is the
+only record of which mode applies.
+
 ## Verifying changes
 
 `.claude/launch.json` serves the repo root via `npx http-server` on port 8471
@@ -127,8 +156,8 @@ in minutes. Restore the user's wallpaper by navigating back to its original
 
 ## Conventions and preferences
 
-- **No save-migration code at this stage** — no version fields, no legacy-key
-  shims. The user has been explicit about this; don't add it defensively.
+- Save compatibility depends on release status — see the table above before
+  changing anything that serializes.
 - **Ship dependencies with the wallpaper** wherever that can legally be done for
   free — vendor the file into the wallpaper's own folder rather than pointing at a
   CDN, and include the upstream licence text next to it (MIT, BSD, Apache-2.0 and
